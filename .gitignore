@@ -161,3 +161,8 @@ cython_debug/
 #.idea/
 
 training224x224/
+kvasir-seg/
+checkpoints/
+*.h5
+*.hdf5
+*.keras

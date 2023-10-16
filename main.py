@@ -2,9 +2,15 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import imageio.v2 as io
+from PIL import Image
+from data_generator import DataGenerator
+
 from tensorflow.keras.layers import Conv2D, Input, Concatenate, Activation, MaxPool2D, UpSampling2D, GroupNormalization, \
                                     Add, Multiply
 from tensorflow.keras.models import Model
+
+from tensorflow.keras.callbacks import ModelCheckpoint
+
 
 TRAINING_PATH = "./training224x224/"
 image_width = 224
@@ -50,7 +56,7 @@ def unet(filters=8, layers=4, input_shape=(224,224,1), activation='swish'):
     return Model(model_in, model_out)
 
 
-def nestedUnet(nests=4, filters=1, forward_input=True, operation="multiply", input_shape=(256, 256, 1)):
+def nested_unet(nests=4, filters=1, forward_input=True, operation="multiply", input_shape=(256, 256, 1)):
     x = Input(input_shape)
     m0 = unet(filters, input_shape=input_shape)(x)
     
@@ -75,43 +81,78 @@ def nestedUnet(nests=4, filters=1, forward_input=True, operation="multiply", inp
     else:
         return Model(x, m0)
 
-if __name__ == '__main__':
+def read_dataset(folder_path: str, num_ims: int, size: tuple = None, is_training: bool = False, randomize: bool = True) -> list:
+    output = []
+    image_paths = [folder_path + str(i) + ".png" for i in range(num_ims)]
     
+    if is_training:
+        mask_paths = [folder_path + str(i) + "_seg.png" for i in range(num_ims)]
+        masks = []
+
+        for i in range(num_ims):
+            mask = io.imread(mask_paths[i])
+
+            if np.max(mask) != 0:
+                if np.max(mask) > 10:
+                    mask = mask / 255.0
+
+                img = Image.open(image_paths[i]).convert("L")  # Open image in grayscale
+
+                if size is not None:
+                    img = np.array(img.resize(size))
+                    mask = np.array(Image.fromarray(mask).resize(size))
+
+                output.append(np.array(tf.expand_dims(img, -1)))
+                masks.append(np.array(tf.expand_dims(mask, -1)))
+
+        if randomize:
+            # Randomizing
+            n_samples = len(output)
+            np.random.seed(42)
+            indices = np.arange(n_samples)
+            np.random.shuffle(indices)
+
+            output = [output[i] for i in indices]
+            masks = [masks[i] for i in indices]
+
+        return [output, masks]
+    else:
+        for i in range(len(image_paths)):
+            img = Image.open(image_paths[i]).convert("L")  # Open image in grayscale
+
+            if size is not None:
+                img = np.array(img.resize(size))
+
+            output.append(np.array(tf.expand_dims(img, -1)))
+
+        return output
+
+
+def main():
     N = 22 # arbitrary number of samples
+    train_gen = DataGenerator(TRAINING_PATH, num_samples=N, batch_size=4, image_size=(image_width, image_height), shuffle=True, validation_split=0.2)
 
-    train_imgs = [TRAINING_PATH + str(i) + ".png" for i in range(N)]
-    train_segs = [TRAINING_PATH + str(i) + "_seg.png" for i in range(N)]
-
-    imgs = []
-    segs = []
-
-    for i in range(N):
-        seg = io.imread(train_segs[i])
-        if np.max(seg) != 0:  # To remove the black images
-            if np.max(seg) > 10:
-                seg = seg / 255.0
-
-            img = io.imread(train_imgs[i]) / 255.0
-
-            imgs.append(np.expand_dims(img, axis=2))
-            segs.append(np.expand_dims(seg, axis=2))
-
-            # imgs.append(np.array(tf.expand_dims(img, -1)))
-            # segs.append(np.array(tf.expand_dims(seg, -1)))
-
-    # Randomizing
-    nSamples = len(imgs)
-    np.random.seed(42)
-    indices = np.arange(nSamples)
-    np.random.shuffle(indices)  # Shuffling indices directly
-
-    imgs = [imgs[i] for i in indices]
-    segs = [segs[i] for i in indices]
-
-
-    nestedModel = nestedUnet(nests=NUM_NESTS, filters=NUM_FILTERS, input_shape=(image_width, image_height, 1))
-    nestedModel.summary()
-    nestedModel.compile("adam", "mse")
+    nested_model = nested_unet(nests=NUM_NESTS, filters=NUM_FILTERS, input_shape=(image_width, image_height, 1))
+    nested_model.summary()
+    nested_model.compile("adam", "mse")
 
     # Training
-    history = nestedModel.fit(np.array(imgs), np.array(segs), epochs=10, batch_size=4)
+    
+    model_checkpoint = ModelCheckpoint(
+        filepath=f"./checkpoints/nestedUnet_{NUM_NESTS}_{NUM_FILTERS}_{{epoch}}.h5",
+        save_best_only=True,
+        monitor="val_loss",
+        mode="min",
+        save_weights_only=False,
+        verbose=1
+    )
+
+    # Training
+    history = nested_model.fit(train_gen.get_train_data(), epochs=10, validation_steps=train_gen.val_steps, callbacks=[model_checkpoint])
+
+    # Save the final model using the native Keras format
+    nested_model.save(f"./checkpoints/nestedUnet_{NUM_NESTS}_{NUM_FILTERS}_{1}_final.keras")
+    
+if __name__ == '__main__':
+    main()
+    
