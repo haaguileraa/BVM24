@@ -21,6 +21,7 @@ class DataGenerator:
         split_index = int(self.num_samples * (1 - self.validation_split))
         train_indexes = self.indexes[:split_index]
         val_indexes = self.indexes[split_index:]
+        print(f"Training on {len(train_indexes)} samples, validating on {len(val_indexes)} samples")
         return train_indexes, val_indexes
         
     def _load_image(self, path):
@@ -46,6 +47,8 @@ class DataGenerator:
             mask_path = os.path.join(self.folder_path, str(i) + "_seg.png")
             X.append(self._load_image(image_path))
             Y.append(self._load_mask(mask_path))
+            # print shapes
+        print(f"X: {np.array(X).shape}, Y: {np.array(Y).shape}")
         return np.array(X), np.array(Y)
         
     def get_train_data(self):

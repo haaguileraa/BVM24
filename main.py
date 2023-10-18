@@ -131,27 +131,29 @@ def read_dataset(folder_path: str, num_ims: int, size: tuple = None, is_training
 def main():
     N = 22 # arbitrary number of samples
     train_gen = DataGenerator(TRAINING_PATH, num_samples=N, batch_size=4, image_size=(image_width, image_height), shuffle=True, validation_split=0.2)
-
-    nested_model = nested_unet(nests=NUM_NESTS, filters=NUM_FILTERS, input_shape=(image_width, image_height, 1))
-    nested_model.summary()
-    nested_model.compile("adam", "mse")
+    train_dat = train_gen.get_train_data()
+    val_dat = train_gen.get_validation_data()
+    
+    # nested_model = nested_unet(nests=NUM_NESTS, filters=NUM_FILTERS, input_shape=(image_width, image_height, 1))
+    # nested_model.summary()
+    # nested_model.compile("adam", "mse")
 
     # Training
     
-    model_checkpoint = ModelCheckpoint(
-        filepath=f"./checkpoints/nestedUnet_{NUM_NESTS}_{NUM_FILTERS}_{{epoch}}.h5",
-        save_best_only=True,
-        monitor="val_loss",
-        mode="min",
-        save_weights_only=False,
-        verbose=1
-    )
+    # model_checkpoint = ModelCheckpoint(
+    #     filepath=f"./checkpoints/nestedUnet_{NUM_NESTS}_{NUM_FILTERS}_{{epoch}}.h5",
+    #     save_best_only=True,
+    #     monitor="val_loss",
+    #     mode="min",
+    #     save_weights_only=False,
+    #     verbose=1
+    # )
 
-    # Training
-    history = nested_model.fit(train_gen.get_train_data(), epochs=10, validation_steps=train_gen.val_steps, callbacks=[model_checkpoint])
+    # # Training
+    # history = nested_model.fit(train_gen.get_train_data(), epochs=10, validation_steps=train_gen.val_steps, callbacks=[model_checkpoint])
 
-    # Save the final model using the native Keras format
-    nested_model.save(f"./checkpoints/nestedUnet_{NUM_NESTS}_{NUM_FILTERS}_{1}_final.keras")
+    # # Save the final model using the native Keras format
+    # nested_model.save(f"./checkpoints/nestedUnet_{NUM_NESTS}_{NUM_FILTERS}_{1}_final.keras")
     
 if __name__ == '__main__':
     main()
