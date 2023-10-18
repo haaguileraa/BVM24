@@ -129,32 +129,45 @@ def read_dataset(folder_path: str, num_ims: int, size: tuple = None, is_training
 
 
 def main():
-    N = 22 # arbitrary number of samples
+    image_width = 224
+    image_height = 224
+    num_nests = [1, 2, 4, 8, 16]
+    numFilters = [8, 16] 
+    operations = ["add", "multiply", "concatenate"]
+    N = int(55749*0.1) # 10% of the dataset
     train_gen = DataGenerator(TRAINING_PATH, num_samples=N, batch_size=4, image_size=(image_width, image_height), shuffle=True, validation_split=0.2)
-    train_dat = train_gen.get_train_data()
-    val_dat = train_gen.get_validation_data()
-    
+ 
     # nested_model = nested_unet(nests=NUM_NESTS, filters=NUM_FILTERS, input_shape=(image_width, image_height, 1))
     # nested_model.summary()
     # nested_model.compile("adam", "mse")
-
-    # Training
-    
-    # model_checkpoint = ModelCheckpoint(
-    #     filepath=f"./checkpoints/nestedUnet_{NUM_NESTS}_{NUM_FILTERS}_{{epoch}}.h5",
-    #     save_best_only=True,
-    #     monitor="val_loss",
-    #     mode="min",
-    #     save_weights_only=False,
-    #     verbose=1
-    # )
-
     # # Training
     # history = nested_model.fit(train_gen.get_train_data(), epochs=10, validation_steps=train_gen.val_steps, callbacks=[model_checkpoint])
 
     # # Save the final model using the native Keras format
-    # nested_model.save(f"./checkpoints/nestedUnet_{NUM_NESTS}_{NUM_FILTERS}_{1}_final.keras")
     
+    for current_num_nests in num_nests:
+        for current_num_filters in numFilters:
+            for current_operation in operations:
+                
+                nested_model = nested_unet(nests=current_num_nests, filters=current_num_filters, operation=current_operation, input_shape=(image_width, image_height, 1))
+                nested_model.compile("adam", "mse")
+                
+                model_checkpoint = ModelCheckpoint(
+                    filepath=f"./checkpoints/nestedUnet_{current_num_nests}_{current_num_filters}_{{epoch}}.h5",
+                    save_best_only=True,
+                    monitor="val_loss",
+                    mode="min",
+                    save_weights_only=False,
+                    verbose=1
+                )
+                # Training
+                history = nested_model.fit(train_gen.get_train_data(), epochs=10, validation_steps=train_gen.val_steps, callbacks=[model_checkpoint])
+
+                # Checkpoints
+                nested_model.save(f"nestedUnet_{current_num_nests}_{current_num_filters}_{current_operation}_{1}_final.keras")
+
+
+
 if __name__ == '__main__':
     main()
     
