@@ -1,22 +1,27 @@
-import numpy as np
-import tensorflow as tf
-import matplotlib.pyplot as plt
-import imageio.v2 as io
-from PIL import Image
-from data_generator import DataGenerator
-
-from tensorflow.keras.layers import Conv2D, Input, Concatenate, Activation, MaxPool2D, UpSampling2D, GroupNormalization, \
-                                    Add, Multiply
+import time
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, Callback
+from tensorflow.keras.layers import Conv2D, Input, Concatenate, Activation, MaxPool2D, UpSampling2D, GroupNormalization, Add, Multiply
 from tensorflow.keras.models import Model
-
-from tensorflow.keras.callbacks import ModelCheckpoint
-
+from data_generator import DataGenerator
 
 TRAINING_PATH = "./training224x224/"
 image_width = 224
 image_height = 224
 NUM_NESTS = 4
 NUM_FILTERS = 8
+
+
+class TimeHistory(Callback):
+    """Saving time epoch wise."""
+    # https://stackoverflow.com/questions/43178668/record-the-computation-time-for-each-epoch-in-keras-during-model-fit
+    def on_train_begin(self, logs={}):
+        self.times = []
+
+    def on_epoch_begin(self, batch, logs={}):
+        self.epoch_time_start = time.time()
+
+    def on_epoch_end(self, batch, logs={}):
+        self.times.append(time.time() - self.epoch_time_start)
 
 
 def conv(x, filters:int=8, activation:str="swish"):
@@ -81,52 +86,6 @@ def nested_unet(nests=4, filters=1, forward_input=True, operation="multiply", in
     else:
         return Model(x, m0)
 
-def read_dataset(folder_path: str, num_ims: int, size: tuple = None, is_training: bool = False, randomize: bool = True) -> list:
-    output = []
-    image_paths = [folder_path + str(i) + ".png" for i in range(num_ims)]
-    
-    if is_training:
-        mask_paths = [folder_path + str(i) + "_seg.png" for i in range(num_ims)]
-        masks = []
-
-        for i in range(num_ims):
-            mask = io.imread(mask_paths[i])
-
-            if np.max(mask) != 0:
-                if np.max(mask) > 10:
-                    mask = mask / 255.0
-
-                img = Image.open(image_paths[i]).convert("L")  # Open image in grayscale
-
-                if size is not None:
-                    img = np.array(img.resize(size))
-                    mask = np.array(Image.fromarray(mask).resize(size))
-
-                output.append(np.array(tf.expand_dims(img, -1)))
-                masks.append(np.array(tf.expand_dims(mask, -1)))
-
-        if randomize:
-            # Randomizing
-            n_samples = len(output)
-            np.random.seed(42)
-            indices = np.arange(n_samples)
-            np.random.shuffle(indices)
-
-            output = [output[i] for i in indices]
-            masks = [masks[i] for i in indices]
-
-        return [output, masks]
-    else:
-        for i in range(len(image_paths)):
-            img = Image.open(image_paths[i]).convert("L")  # Open image in grayscale
-
-            if size is not None:
-                img = np.array(img.resize(size))
-
-            output.append(np.array(tf.expand_dims(img, -1)))
-
-        return output
-
 
 def main():
     image_width = 224
@@ -144,6 +103,13 @@ def main():
     # history = nested_model.fit(train_gen.get_train_data(), epochs=10, validation_steps=train_gen.val_steps, callbacks=[model_checkpoint])
 
     # # Save the final model using the native Keras format
+    stop_criterion = EarlyStopping(
+            monitor="val_loss",
+            min_delta=0.001,
+            verbose=1,
+            patience=8,
+            mode="min",
+        )
     
     for current_num_nests in num_nests:
         for current_num_filters in numFilters:
@@ -160,14 +126,19 @@ def main():
                     save_weights_only=False,
                     verbose=1
                 )
+                
+                time_callback = TimeHistory()
+                
                 # Training
-                history = nested_model.fit(train_gen.get_train_data(), epochs=10, validation_steps=train_gen.val_steps, callbacks=[model_checkpoint])
+                history = nested_model.fit(train_gen.get_train_data(), epochs=10, validation_steps=train_gen.val_steps, callbacks=[model_checkpoint, stop_criterion, time_callback])
 
                 # Checkpoints
                 nested_model.save(f"nestedUnet_{current_num_nests}_{current_num_filters}_{current_operation}_{1}_final.keras")
-
+                
+                # Save epoch-wise time taken during training
+                with open(f"time_history_{current_num_nests}_{current_num_filters}_{current_operation}.txt", "w") as f:
+                    f.write("\n".join(str(t) for t in time_callback.times))
 
 
 if __name__ == '__main__':
     main()
-    
