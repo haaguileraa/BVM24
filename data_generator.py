@@ -4,65 +4,51 @@ import tensorflow as tf
 import imageio.v2 as io
 from PIL import Image
 
-class DataGenerator:
-    def __init__(self, folder_path, num_samples, batch_size, image_size, shuffle=True, validation_split=0.2):
+class DataGenerator(tf.keras.utils.Sequence):
+    def __init__(self, folder_path, batch_size, num_ims, size=None, is_training=False, validation_split=0.2):
         self.folder_path = folder_path
-        self.num_samples = num_samples
         self.batch_size = batch_size
-        self.image_size = image_size
-        self.shuffle = shuffle
+        self.num_ims = num_ims
+        self.size = size
+        self.is_training = is_training
         self.validation_split = validation_split
-        self.indexes = np.arange(num_samples)
-        self.train_indexes, self.val_indexes = self._split_train_val()
-        self.train_steps = int(np.ceil(len(self.train_indexes) / self.batch_size))
-        self.val_steps = int(np.ceil(len(self.val_indexes) / self.batch_size))
-        
-    def _split_train_val(self):
-        split_index = int(self.num_samples * (1 - self.validation_split))
-        train_indexes = self.indexes[:split_index]
-        val_indexes = self.indexes[split_index:]
-        #print(f"Training on {len(train_indexes)} samples, validating on {len(val_indexes)} samples")
-        return train_indexes, val_indexes
-        
-    def _load_image(self, path):
-        img = Image.open(path).convert("L")
-        if self.image_size is not None:
-            img = img.resize(self.image_size)
-        return np.array(tf.expand_dims(img, -1))
-        
-    def _load_mask(self, path):
-        mask = io.imread(path)
-        if np.max(mask) != 0:
-            if np.max(mask) > 10:
-                mask = mask / 255.0
-            if self.image_size is not None:
-                mask = np.array(Image.fromarray(mask).resize(self.image_size))
-        return np.array(tf.expand_dims(mask, -1))
-        
-    def _get_data(self, indexes):
-        X = []
-        Y = []
-        for i in indexes:
-            image_path = os.path.join(self.folder_path, str(i) + ".png")
-            mask_path = os.path.join(self.folder_path, str(i) + "_seg.png")
-            X.append(self._load_image(image_path))
-            Y.append(self._load_mask(mask_path))
-            # print shapes
-        #print(f"X: {np.array(X).shape}, Y: {np.array(Y).shape}")
-        return np.array(X), np.array(Y)
-        
-    def get_train_data(self):
-        if self.shuffle:
-            np.random.shuffle(self.train_indexes)
-        while True:
-            for i in range(self.train_steps):
-                indexes = self.train_indexes[i*self.batch_size:(i+1)*self.batch_size]
-                yield self._get_data(indexes)
-            
-    def get_validation_data(self):
-        if self.shuffle:
-            np.random.shuffle(self.val_indexes)
-        while True:
-            for i in range(self.val_steps):
-                indexes = self.val_indexes[i*self.batch_size:(i+1)*self.batch_size]
-                yield self._get_data(indexes)[0:2] # return only the first two values
+
+        self.image_paths = [folder_path + str(i) + ".png" for i in range(num_ims)]
+        if is_training:
+            self.mask_paths = [folder_path + str(i) + "_seg.png" for i in range(num_ims)]
+            self.masks = []
+            for i in range(num_ims):
+                mask = io.imread(self.mask_paths[i])
+                if np.max(mask) != 0:
+                    if np.max(mask) > 10:
+                        mask = mask / 255.0
+                    img = Image.open(self.image_paths[i]).convert("L")
+                    if size is not None:
+                        img = np.array(img.resize(size))
+                        mask = np.array(Image.fromarray(mask).resize(size))
+                    self.masks.append(np.array(tf.expand_dims(mask, -1)))
+
+            self.output = np.array(self.masks)
+            self.indices = np.arange(len(self.output))
+            np.random.seed(42)
+            np.random.shuffle(self.indices)
+            split_index = int(len(self.output) * (1 - validation_split))
+            self.train_indices = self.indices[:split_index]
+            self.val_indices = self.indices[split_index:]
+        else:
+            self.output = []
+            for i in range(len(self.image_paths)):
+                img = Image.open(self.image_paths[i]).convert("L")
+                if size is not None:
+                    img = np.array(img.resize(size))
+                self.output.append(np.array(tf.expand_dims(img, -1)))
+            self.output = np.array(self.output)
+
+    def __len__(self):
+        return int(np.ceil(len(self.output) / float(self.batch_size)))
+
+    def __getitem__(self, idx):
+        batch_indices = self.train_indices[idx * self.batch_size:(idx + 1) * self.batch_size]
+        batch_output = self.output[batch_indices]
+        batch_input = np.array([np.array(tf.expand_dims(Image.open(self.image_paths[i]).convert("L"), -1)) for i in batch_indices])
+        return batch_input, batch_output

@@ -94,15 +94,7 @@ def main():
     numFilters = [8, 16] 
     operations = ["add", "multiply", "concatenate"]
     N = int(55749*0.1) # 10% of the dataset
-    train_gen = DataGenerator(TRAINING_PATH, num_samples=N, batch_size=4, image_size=(image_width, image_height), shuffle=True, validation_split=0.2)
- 
-    # nested_model = nested_unet(nests=NUM_NESTS, filters=NUM_FILTERS, input_shape=(image_width, image_height, 1))
-    # nested_model.summary()
-    # nested_model.compile("adam", "mse")
-    # # Training
-    # history = nested_model.fit(train_gen.get_train_data(), epochs=10, validation_steps=train_gen.val_steps, callbacks=[model_checkpoint])
-
-    
+    batch_size = 16
     stop_criterion = EarlyStopping(
                                     monitor="val_loss",
                                     min_delta=0.001,
@@ -114,6 +106,9 @@ def main():
     for current_num_nests in num_nests:
         for current_num_filters in numFilters:
             for current_operation in operations:
+                
+                train_gen = DataGenerator(TRAINING_PATH, batch_size, N, (image_width, image_height), is_training=True, validation_split=0.2)
+                val_gen = DataGenerator(TRAINING_PATH, batch_size, N, (image_width, image_height), is_training=False, validation_split=0.2)
                 
                 nested_model = nested_unet(nests=current_num_nests, filters=current_num_filters, operation=current_operation, input_shape=(image_width, image_height, 1))
                 nested_model.compile("adam", "mse")
@@ -130,7 +125,7 @@ def main():
                 time_callback = TimeHistory()
                 
                 # Training
-                history = nested_model.fit(train_gen.get_train_data(), epochs=10, validation_steps=train_gen.val_steps, callbacks=[model_checkpoint, stop_criterion, time_callback])
+                history = nested_model.fit(train_gen, epochs=10, validation_data = val_gen,  callbacks=[model_checkpoint, stop_criterion, time_callback])
 
                 # # Save the final model using the native Keras format
                 nested_model.save(f"nestedUnet_{current_num_nests}_{current_num_filters}_{current_operation}_{1}_final.keras")
@@ -138,7 +133,6 @@ def main():
                 # Save epoch-wise time taken during training
                 with open(f"time_history_{current_num_nests}_{current_num_filters}_{current_operation}.txt", "w") as f:
                     f.write("\n".join(str(t) for t in time_callback.times))
-
 
 if __name__ == '__main__':
     main()
