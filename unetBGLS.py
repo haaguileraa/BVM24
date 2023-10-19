@@ -146,3 +146,6 @@ def main():
 
                 # Checkpoints
                 nested_model.save(f"nestedUnet_{current_num_nests}_{current_num_filters}_{current_operation}.h5")
+
+            if __name__ == "__main__":
+                main()
