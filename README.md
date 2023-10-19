@@ -3,6 +3,7 @@
 For windows
   * `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process`
   * `.venvBVM\scripts\activate`
+    
 or for linux
   * `
 
