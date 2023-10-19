@@ -102,14 +102,14 @@ def main():
     # # Training
     # history = nested_model.fit(train_gen.get_train_data(), epochs=10, validation_steps=train_gen.val_steps, callbacks=[model_checkpoint])
 
-    # # Save the final model using the native Keras format
+    
     stop_criterion = EarlyStopping(
-            monitor="val_loss",
-            min_delta=0.001,
-            verbose=1,
-            patience=8,
-            mode="min",
-        )
+                                    monitor="val_loss",
+                                    min_delta=0.001,
+                                    verbose=1,
+                                    patience=8,
+                                    mode="min",
+                                  )
     
     for current_num_nests in num_nests:
         for current_num_filters in numFilters:
@@ -132,7 +132,7 @@ def main():
                 # Training
                 history = nested_model.fit(train_gen.get_train_data(), epochs=10, validation_steps=train_gen.val_steps, callbacks=[model_checkpoint, stop_criterion, time_callback])
 
-                # Checkpoints
+                # # Save the final model using the native Keras format
                 nested_model.save(f"nestedUnet_{current_num_nests}_{current_num_filters}_{current_operation}_{1}_final.keras")
                 
                 # Save epoch-wise time taken during training
