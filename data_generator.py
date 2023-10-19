@@ -4,70 +4,74 @@ import tensorflow as tf
 import imageio.v2 as io
 from PIL import Image
 
-import tensorflow as tf
-from PIL import Image
-import numpy as np
-
 class DataGenerator(tf.keras.utils.Sequence):
-    def __init__(self, data_path, batch_size, num_samples, image_size, is_training=True, validation_split=0.2):
-        self.data_path = data_path
+    def __init__(self, folder_path, batch_size, num_ims, size=None, is_training=False, validation_split=0.2):
+        self.folder_path = folder_path
         self.batch_size = batch_size
-        self.num_samples = num_samples
-        self.image_size = image_size
+        self.num_ims = num_ims
+        self.size = size
         self.is_training = is_training
         self.validation_split = validation_split
-        
-        self.image_paths = self.load_image_paths()
-        self.train_indices, self.val_indices = self.split_train_val_indices()
-        
-    def load_image_paths(self):
-        image_paths = []
-        with open(self.data_path, "r") as f:
-            for line in f:
-                image_path = line.strip()
-                image_paths.append(image_path)
-        return image_paths[:self.num_samples]
-    
-    def split_train_val_indices(self):
-        num_train_samples = int(len(self.image_paths) * (1 - self.validation_split))
-        train_indices = np.arange(num_train_samples)
-        val_indices = np.arange(num_train_samples, len(self.image_paths))
-        return train_indices, val_indices
-    
+
+        self.image_paths = [folder_path + str(i) + ".png" for i in range(num_ims)]
+        if is_training:
+            self.mask_paths = [folder_path + str(i) + "_seg.png" for i in range(num_ims)]
+            self.masks = []
+            for i in range(num_ims):
+                mask = io.imread(self.mask_paths[i])
+                if np.max(mask) != 0:
+                    if np.max(mask) > 10:
+                        mask = mask / 255.0
+                    img = Image.open(self.image_paths[i]).convert("L")
+                    if size is not None:
+                        img = np.array(img.resize(size))
+                        mask = np.array(Image.fromarray(mask).resize(size))
+                    self.masks.append(np.array(tf.expand_dims(mask, -1)))
+
+            self.output = np.array(self.masks)
+            self.indices = np.arange(len(self.output))
+            np.random.seed(42)
+            np.random.shuffle(self.indices)
+            split_index = int(len(self.output) * (1 - validation_split))
+            self.train_indices = self.indices[:split_index]
+            self.val_indices = self.indices[split_index:]
+        else:
+            self.output = []
+            for i in range(len(self.image_paths)):
+                img = Image.open(self.image_paths[i]).convert("L")
+                if size is not None:
+                    img = np.array(img.resize(size))
+                self.output.append(np.array(tf.expand_dims(img, -1)))
+            self.output = np.array(self.output)
+
     def preprocess_image(self, image_path):
         img = Image.open(image_path).convert("L")
-        if self.image_size is not None:
-            img = img.resize(self.image_size)
+        if self.size is not None:
+            img = img.resize(self.size)
         img = np.array(img)
         img = np.expand_dims(img, -1)
         img = img / 255.0
         return img
-    
+
     def get_dataset(self, indices):
-        image_paths = [self.image_paths[i] for i in indices]
-        images = [self.preprocess_image(image_path) for image_path in image_paths]
+        images = [self.preprocess_image(image_path) for image_path in np.array(self.image_paths)[indices]]
         images = np.array(images)
-        dataset = tf.data.Dataset.from_tensor_slices(images)
+        labels = self.output[indices]
+        dataset = tf.data.Dataset.from_tensor_slices((images, labels))
         dataset = dataset.shuffle(len(images))
         dataset = dataset.batch(self.batch_size)
         return dataset
-    
+
     def get_train_dataset(self):
         return self.get_dataset(self.train_indices)
-    
+
     def get_val_dataset(self):
         return self.get_dataset(self.val_indices)
-    
+
     def __len__(self):
-        if self.is_training:
-            return int(np.ceil(len(self.train_indices) / float(self.batch_size)))
-        else:
-            return int(np.ceil(len(self.val_indices) / float(self.batch_size)))
-    
+        return int(np.ceil(len(self.output) / float(self.batch_size)))
+
     def __getitem__(self, idx):
-        if self.is_training:
-            dataset = self.get_train_dataset()
-        else:
-            dataset = self.get_val_dataset()
+        dataset = self.get_train_dataset()
         batch = dataset.__iter__().get_next()
-        return batch, batch
+        return batch

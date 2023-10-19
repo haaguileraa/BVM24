@@ -107,9 +107,10 @@ def main():
         for current_num_filters in numFilters:
             for current_operation in operations:
                 
-                train_ds = DataGenerator(TRAINING_PATH, batch_size, N, (image_width, image_height), is_training=True, validation_split=0.2).get_train_dataset()
-                val_ds = DataGenerator(TRAINING_PATH, batch_size, N, (image_width, image_height), is_training=False, validation_split=0.2).get_val_dataset()
-                
+                data_generator = DataGenerator(TRAINING_PATH, batch_size, N, (image_width, image_height), is_training=True, validation_split=0.2)
+                train_ds = data_generator.get_train_dataset()
+                val_ds = data_generator.get_val_dataset()
+
                 nested_model = nested_unet(nests=current_num_nests, filters=current_num_filters, operation=current_operation, input_shape=(image_width, image_height, 1))
                 nested_model.compile("adam", "mse")
                 
