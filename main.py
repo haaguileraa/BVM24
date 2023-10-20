@@ -2,6 +2,7 @@ import time
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, Callback
 from tensorflow.keras.layers import Conv2D, Input, Concatenate, Activation, MaxPool2D, UpSampling2D, GroupNormalization, Add, Multiply
 from tensorflow.keras.models import Model
+from tensorflow.keras.metrics import IoU
 
 from data_generator import DataGenerator
 from sklearn.model_selection import train_test_split
@@ -98,8 +99,9 @@ def main():
     N = int(55749*0.1) # 10% of the dataset
     batch_size = 32
     validation_split = 0.2
-
+    NUM_CLASSES = 1
     
+
 
     stop_criterion = EarlyStopping(
                                     monitor="val_loss",
@@ -116,7 +118,7 @@ def main():
                 image_paths = [TRAINING_PATH + str(i) + ".png" for i in range(N)]
                 
                         
-                train_paths, val_paths = train_test_split(image_paths, test_size=0.2)
+                train_paths, val_paths = train_test_split(image_paths, test_size=validation_split)
                 
 
                 train_data = DataGenerator(train_paths, N, (image_width, image_height), batch_size=batch_size)
@@ -125,7 +127,8 @@ def main():
                 
 
                 nested_model = nested_unet(nests=current_num_nests, filters=current_num_filters, operation=current_operation, input_shape=(image_width, image_height, 1))
-                nested_model.compile("adam", "mse")
+                nested_model.compile("adam", "mse",
+                                      metrics=[IoU(num_classes=NUM_CLASSES, target_class_ids=[0])])
                 
                 model_checkpoint = ModelCheckpoint(
                     filepath=f"./checkpoints/nestedUnet_{current_num_nests}_{current_num_filters}_{{epoch}}.h5",
