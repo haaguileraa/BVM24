@@ -119,9 +119,8 @@ def main():
                 train_paths, val_paths = train_test_split(image_paths, test_size=0.2)
                 
 
-                train_data = DataGenerator(train_paths, batch_size, N, (image_width, image_height), validation_split=0.2)
-                val_data = DataGenerator(val_paths, batch_size, N, (image_width, image_height), validation_split=0.2)
-
+                train_data = DataGenerator(train_paths, N, (image_width, image_height), batch_size=batch_size)
+                val_data = DataGenerator(val_paths, N, (image_width, image_height), batch_size=batch_size)
                 
                 
 

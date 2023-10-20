@@ -25,29 +25,25 @@ class DataGenerator(tf.keras.utils.Sequence):
         return len(self.image_paths)
 
     def _generate_data(self, indices):
-        if len(indices) == 0:
-            return None, None
-        images = []
-        masks = []
-        for i in indices:
-            img_path = self.image_paths[i]
+        images = np.zeros((self.batch_size, *self.size, 1))
+        masks = np.zeros((self.batch_size, *self.size, 1))
+        for i, bn in enumerate(indices):
+            img_path = self.image_paths[bn]
             mask_path = img_path.replace('.png', '_seg.png')
             mask = io.imread(mask_path).astype('float32') 
             #if np.max(mask) != 0:
             img = Image.open(img_path).convert("L")  # Open image in grayscale
             if self.size is not None:        
-                img = np.array(img.resize(self.size)).astype('float32') / 255.0
-                mask = np.array(Image.fromarray(mask).resize(self.size)).astype('float32') / 255.0
+                img = np.array(img.resize(self.size))#.astype('float32') / 255.0
+                mask = np.array(Image.fromarray(mask).resize(self.size))#.astype('float32') / 255.0
             if self.augment is not None:
                 augmented = self.augment(image=img, mask=mask)
                 img = augmented["image"]
                 mask = augmented["mask"]
-            images.append(np.expand_dims(img, -1))
-            masks.append(np.expand_dims(mask, -1))
-        images = np.array(images)
-        masks = np.array(masks)
-        print(images.shape, masks.shape)
-        return images, masks
+            images[i,] = np.expand_dims(img, -1)
+            masks[i,] = np.expand_dims(mask, -1)
+        
+        return images.astype('float32') / 255.0, masks.astype('float32') / 255.0
 
 
     def _on_epoch_end(self):
