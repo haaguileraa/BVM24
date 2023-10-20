@@ -2,7 +2,9 @@ import time
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, Callback
 from tensorflow.keras.layers import Conv2D, Input, Concatenate, Activation, MaxPool2D, UpSampling2D, GroupNormalization, Add, Multiply
 from tensorflow.keras.models import Model
+
 from data_generator import DataGenerator
+from sklearn.model_selection import train_test_split
 
 TRAINING_PATH = "./training224x224/"
 image_width = 224
@@ -94,7 +96,11 @@ def main():
     numFilters = [8, 16] 
     operations = ["add", "multiply", "concatenate"]
     N = int(55749*0.1) # 10% of the dataset
-    batch_size = 16
+    batch_size = 32
+    validation_split = 0.2
+
+    
+
     stop_criterion = EarlyStopping(
                                     monitor="val_loss",
                                     min_delta=0.001,
@@ -107,9 +113,17 @@ def main():
         for current_num_filters in numFilters:
             for current_operation in operations:
                 
-                data_generator = DataGenerator(TRAINING_PATH, batch_size, N, (image_width, image_height), is_training=True, validation_split=0.2)
-                train_ds = data_generator.get_train_dataset()
-                val_ds = data_generator.get_val_dataset()
+                image_paths = [TRAINING_PATH + str(i) + ".png" for i in range(N)]
+                
+                        
+                train_paths, val_paths = train_test_split(image_paths, test_size=0.2)
+                
+
+                train_data = DataGenerator(train_paths, batch_size, N, (image_width, image_height), validation_split=0.2)
+                val_data = DataGenerator(val_paths, batch_size, N, (image_width, image_height), validation_split=0.2)
+
+                
+                
 
                 nested_model = nested_unet(nests=current_num_nests, filters=current_num_filters, operation=current_operation, input_shape=(image_width, image_height, 1))
                 nested_model.compile("adam", "mse")
@@ -126,7 +140,7 @@ def main():
                 time_callback = TimeHistory()
                 
                 # Training
-                history = nested_model.fit(train_ds, epochs=10, validation_data=val_ds, callbacks=[model_checkpoint, stop_criterion, time_callback])
+                history = nested_model.fit(train_data, epochs=10, validation_data=val_data, callbacks=[model_checkpoint, stop_criterion, time_callback])
 
                 # # Save the final model using the native Keras format
                 nested_model.save(f"nestedUnet_{current_num_nests}_{current_num_filters}_{current_operation}_{1}_final.keras")

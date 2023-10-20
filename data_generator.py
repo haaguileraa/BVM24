@@ -3,75 +3,63 @@ import numpy as np
 import tensorflow as tf
 import imageio.v2 as io
 from PIL import Image
+import albumentations as A
+
 
 class DataGenerator(tf.keras.utils.Sequence):
-    def __init__(self, folder_path, batch_size, num_ims, size=None, is_training=False, validation_split=0.2):
-        self.folder_path = folder_path
+    def __init__(self, image_paths, num_ims, size=None, shuffle=False, batch_size = 32, augment = None):
+        self.image_paths = image_paths
         self.batch_size = batch_size
         self.num_ims = num_ims
         self.size = size
-        self.is_training = is_training
-        self.validation_split = validation_split
-
-        self.image_paths = [folder_path + str(i) + ".png" for i in range(num_ims)]
-        if is_training:
-            self.mask_paths = [folder_path + str(i) + "_seg.png" for i in range(num_ims)]
-            self.masks = []
-            for i in range(num_ims):
-                mask = io.imread(self.mask_paths[i])
-                if np.max(mask) != 0:
-                    if np.max(mask) > 10:
-                        mask = mask / 255.0
-                    img = Image.open(self.image_paths[i]).convert("L")
-                    if size is not None:
-                        img = np.array(img.resize(size))
-                        mask = np.array(Image.fromarray(mask).resize(size))
-                    self.masks.append(np.array(tf.expand_dims(mask, -1)))
-
-            self.output = np.array(self.masks)
-            self.indices = np.arange(len(self.output))
-            np.random.seed(42)
-            np.random.shuffle(self.indices)
-            split_index = int(len(self.output) * (1 - validation_split))
-            self.train_indices = self.indices[:split_index]
-            self.val_indices = self.indices[split_index:]
-        else:
-            self.output = []
-            for i in range(len(self.image_paths)):
-                img = Image.open(self.image_paths[i]).convert("L")
-                if size is not None:
-                    img = np.array(img.resize(size))
-                self.output.append(np.array(tf.expand_dims(img, -1)))
-            self.output = np.array(self.output)
-
-    def preprocess_image(self, image_path):
-        img = Image.open(image_path).convert("L")
-        if self.size is not None:
-            img = img.resize(self.size)
-        img = np.array(img)
-        img = np.expand_dims(img, -1)
-        img = img / 255.0
-        return img
-
-    def get_dataset(self, indices):
-        images = [self.preprocess_image(image_path) for image_path in np.array(self.image_paths)[indices]]
-        images = np.array(images)
-        labels = self.output[indices]
-        dataset = tf.data.Dataset.from_tensor_slices((images, labels))
-        dataset = dataset.shuffle(len(images))
-        dataset = dataset.batch(self.batch_size)
-        return dataset
-
-    def get_train_dataset(self):
-        return self.get_dataset(self.train_indices)
-
-    def get_val_dataset(self):
-        return self.get_dataset(self.val_indices)
+        self.shuffle = shuffle
+        self.validation_indices = None
+        self.training_indices = None
+        self.augment = augment
+        
+        self.mask_paths =  [os.path.splitext(path)[0] + "_seg.png" for path in self.image_paths]
+        
+        self._on_epoch_end()
 
     def __len__(self):
-        return int(np.ceil(len(self.output) / float(self.batch_size)))
+        return len(self.image_paths)
 
-    def __getitem__(self, idx):
-        dataset = self.get_train_dataset()
-        batch = dataset.__iter__().get_next()
-        return batch
+    def _generate_data(self, indices):
+        if len(indices) == 0:
+            return None, None
+        images = []
+        masks = []
+        for i in indices:
+            img_path = self.image_paths[i]
+            mask_path = img_path.replace('.png', '_seg.png')
+            mask = io.imread(mask_path).astype('float32') 
+            #if np.max(mask) != 0:
+            img = Image.open(img_path).convert("L")  # Open image in grayscale
+            if self.size is not None:        
+                img = np.array(img.resize(self.size)).astype('float32') / 255.0
+                mask = np.array(Image.fromarray(mask).resize(self.size)).astype('float32') / 255.0
+            if self.augment is not None:
+                augmented = self.augment(image=img, mask=mask)
+                img = augmented["image"]
+                mask = augmented["mask"]
+            images.append(np.expand_dims(img, -1))
+            masks.append(np.expand_dims(mask, -1))
+        images = np.array(images)
+        masks = np.array(masks)
+        print(images.shape, masks.shape)
+        return images, masks
+
+
+    def _on_epoch_end(self):
+        
+        self.indices = np.arange(len(self.image_paths))
+        if self.shuffle:
+            #np.random.seed(42)
+            np.random.shuffle(self.indices)
+        
+    def __getitem__(self, bn):
+        batch_ix = self.indices[bn * self.batch_size:(bn+1)*self.batch_size]
+        return self._generate_data(batch_ix)
+ 
+
+ 
