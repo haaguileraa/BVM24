@@ -1,9 +1,7 @@
 import time
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, Callback, TensorBoard
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, Callback
 from tensorflow.keras.layers import Conv2D, Input, Concatenate, Activation, MaxPool2D, UpSampling2D, GroupNormalization, Add, Multiply
 from tensorflow.keras.models import Model
-from tensorflow.keras.metrics import MeanIoU
-from tensorflow.keras import backend as K
 
 from data_generator import DataGenerator
 from sklearn.model_selection import train_test_split
@@ -90,26 +88,19 @@ def nested_unet(nests=4, filters=1, forward_input=True, operation="multiply", in
     else:
         return Model(x, m0)
 
-def confusion_matrix(y_true, y_pred):
-    y_pred = K.clip(y_pred, 0, 1) # clip predicted labels to [0, 1]
-    y_true_f = K.flatten(K.cast(y_true, 'float32'))
-    y_pred_f = K.flatten(K.cast(K.round(y_pred), 'float32'))
-    intersection = K.sum(y_true_f * y_pred_f)
-    union = K.sum(y_true_f) + K.sum(y_pred_f) - intersection
-    return (intersection + K.epsilon()) / (union + K.epsilon())
 
 def main():
     image_width = 224
     image_height = 224
-    num_nests = [1, 2, 4, 8, 16]
-    numFilters = [8, 16] 
+    num_nests = 1
+    numFilters = 8
     operations = ["add", "multiply", "concatenate"]
     N = int(55749*0.1) # 10% of the dataset
     batch_size = 32
     validation_split = 0.2
-    NUM_CLASSES = 1
-    
 
+    current_operation = operations[0]
+    
 
     stop_criterion = EarlyStopping(
                                     monitor="val_loss",
@@ -119,47 +110,38 @@ def main():
                                     mode="min",
                                   )
     
-    for current_num_nests in num_nests:
-        for current_num_filters in numFilters:
-            for current_operation in operations:
-                
-                image_paths = [TRAINING_PATH + str(i) + ".png" for i in range(N)]
-                
-                log_dir = f'./logs/{current_num_nests}_{current_num_filters}_{current_operation}'
-                tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
+  
+    image_paths = [TRAINING_PATH + str(i) + ".png" for i in range(N)]
+            
+    train_paths, val_paths = train_test_split(image_paths, test_size=0.2)
+    
+    train_data = DataGenerator(train_paths, N, (image_width, image_height), batch_size=batch_size)
+    val_data = DataGenerator(val_paths, N, (image_width, image_height), batch_size=batch_size)
 
-                        
-                train_paths, val_paths = train_test_split(image_paths, test_size=validation_split)
-                
+    
 
-                train_data = DataGenerator(train_paths, N, (image_width, image_height), batch_size=batch_size)
-                val_data = DataGenerator(val_paths, N, (image_width, image_height), batch_size=batch_size)
-                
-                
+    nested_model = nested_unet(nests=num_nests, filters=numFilters, operation=current_operation, input_shape=(image_width, image_height, 1))
+    nested_model.compile("adam", "mse")
+    
+    model_checkpoint = ModelCheckpoint(
+        filepath=f"./checkpoints/nestedUnet_{num_nests}_{numFilters}_{{epoch}}.h5",
+        save_best_only=True,
+        monitor="val_loss",
+        mode="min",
+        save_weights_only=False,
+        verbose=1
+    )
+    
+    time_callback = TimeHistory()
+    
+    # Training 
+    history = nested_model.fit(train_data, epochs=10, validation_data=val_data, callbacks=[model_checkpoint, stop_criterion, time_callback])
 
-                nested_model = nested_unet(nests=current_num_nests, filters=current_num_filters, operation=current_operation, input_shape=(image_width, image_height, 1))
-                nested_model.compile("adam", "mse")
-                                     # metrics=[MeanIoU(num_classes=NUM_CLASSES, name='iou'), confusion_matrix])
-                
-                model_checkpoint = ModelCheckpoint(
-                    filepath=f"./checkpoints/nestedUnet_{current_num_nests}_{current_num_filters}_{{epoch}}.h5",
-                    save_best_only=True,
-                    monitor="val_loss",
-                    mode="min",
-                    save_weights_only=False,
-                    verbose=1
-                )
-                
-                time_callback = TimeHistory()
-                
-                # Training
-                history = nested_model.fit(train_data, epochs=10, validation_data=val_data, callbacks=[model_checkpoint, stop_criterion, time_callback, tensorboard_callback])
-
-                # # Save the final model using the native Keras format
-                nested_model.save(f"nestedUnet_{current_num_nests}_{current_num_filters}_{current_operation}_{1}_final.keras")
-                
-                # Save epoch-wise time taken during training
-                with open(f"time_history_{current_num_nests}_{current_num_filters}_{current_operation}.txt", "w") as f:
-                    f.write("\n".join(str(t) for t in time_callback.times))
-if __name__ == '__main__':
+    # # Save the final model using the native Keras format
+    nested_model.save(f"nestedUnet_{num_nests}_{numFilters}_{current_operation}_{1}_final.keras")
+    
+    # Save epoch-wise time taken during training
+    with open(f"time_history_{num_nests}_{numFilters}_{current_operation}.txt", "w") as f:
+        f.write("\n".join(str(t) for t in time_callback.times))
+if __name__ == "__main__":
     main()
