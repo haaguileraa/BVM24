@@ -91,7 +91,7 @@ def nested_unet(nests=4, filters=1, forward_input=True, operation="multiply", in
         return Model(x, m0)
 
 def confusion_matrix(y_true, y_pred):
-    y_pred = K.clip(y_pred, 0, 1) # clip predicted labels to [0, 1]
+    y_pred = K.clip(y_pred, 0, 1) 
     y_true_f = K.flatten(K.cast(y_true, 'float32'))
     y_pred_f = K.flatten(K.cast(K.round(y_pred), 'float32'))
     intersection = K.sum(y_true_f * y_pred_f)
