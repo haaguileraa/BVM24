@@ -163,6 +163,7 @@ cython_debug/
 training224x224/
 kvasir-seg/
 checkpoints/
+logs/
 *.h5
 *.hdf5
 *.keras
