@@ -1,14 +1,16 @@
 import time
+import os
+os.environ["SM_FRAMEWORK"] = "tf.keras"
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, Callback, TensorBoard
 from tensorflow.keras.layers import Conv2D, Input, Concatenate, Activation, MaxPool2D, UpSampling2D, GroupNormalization, Add, Multiply
 from tensorflow.keras.models import Model
-from tensorflow.keras.metrics import MeanIoU
 from tensorflow.keras import backend as K
-from segmentation_models.losses import dice_loss, binary_focal_loss
+from segmentation_models.losses import dice_loss
 from segmentation_models.metrics import iou_score
 from data_generator import DataGenerator
 from sklearn.model_selection import train_test_split
-
+import albumentations as A
+import json
 TRAINING_PATH = "./training224x224/"
 image_width = 224
 image_height = 224
@@ -110,6 +112,12 @@ def main():
     validation_split = 0.2
     NUM_CLASSES = 1
     
+    transforms = A.Compose([A.RandomBrightnessContrast(p=0.5),
+                            A.HorizontalFlip(0.5),
+                            A.VerticalFlip(p=0.5),
+                            A.RandomRotate90(p=0.5),
+                            A.HueSaturationValue(p=0.5),
+                            ])
 
 
     stop_criterion = EarlyStopping(
@@ -139,11 +147,12 @@ def main():
                 
 
                 nested_model = nested_unet(nests=current_num_nests, filters=current_num_filters, operation=current_operation, input_shape=(image_width, image_height, 1))
-                nested_model.compile("adam", "mse", loss=dice_loss, metrics=[iou_score])
+                nested_model.compile("adam", "mse", metrics=[iou_score])
+                                    #loss = dice_loss,
                                      # metrics=[MeanIoU(num_classes=NUM_CLASSES, name='iou'), confusion_matrix])
                 
                 model_checkpoint = ModelCheckpoint(
-                    filepath='./models/nestedUnet_{current_num_nests}_{current_num_filters}_{epoch:02d}_{iou:.4f}_{val_iou:.4f}.h5',
+                    filepath=f"./checkpoints/nestedUnet_{current_num_nests}_{current_num_filters}_{{epoch}}.h5",
                     monitor='val_loss',
                     verbose=1,
                     save_best_only=True,
@@ -156,12 +165,16 @@ def main():
                 
                 # Training
                 history = nested_model.fit(train_data, epochs=10, validation_data=val_data, callbacks=[model_checkpoint, stop_criterion, time_callback, tensorboard_callback])
+                history_dict = history.history
 
+                with open(f"/history/history__{current_num_nests}_{current_num_filters}_{current_operation}.json", 'w') as f:
+                    json.dump(history_dict, f)
                 # # Save the final model using the native Keras format
                 nested_model.save(f"nestedUnet_{current_num_nests}_{current_num_filters}_{current_operation}_{1}_final.keras")
                 
                 # Save epoch-wise time taken during training
                 with open(f"time_history_{current_num_nests}_{current_num_filters}_{current_operation}.txt", "w") as f:
                     f.write("\n".join(str(t) for t in time_callback.times))
+                
 if __name__ == '__main__':
     main()
