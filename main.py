@@ -167,7 +167,7 @@ def main():
                 history = nested_model.fit(train_data, epochs=10, validation_data=val_data, callbacks=[model_checkpoint, stop_criterion, time_callback, tensorboard_callback])
                 history_dict = history.history
 
-                with open(f"./history/history__{current_num_nests}_{current_num_filters}_{current_operation}.json", 'w') as f:
+                with open(f"./history/history_{current_num_nests}_{current_num_filters}_{current_operation}.json", 'w') as f:
                     json.dump(history_dict, f)
                 # # Save the final model using the native Keras format
                 nested_model.save(f"./models/nestedUnet_{current_num_nests}_{current_num_filters}_{current_operation}_{1}_final.keras")
