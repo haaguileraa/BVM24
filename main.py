@@ -4,7 +4,8 @@ from tensorflow.keras.layers import Conv2D, Input, Concatenate, Activation, MaxP
 from tensorflow.keras.models import Model
 from tensorflow.keras.metrics import MeanIoU
 from tensorflow.keras import backend as K
-
+from segmentation_models.losses import dice_loss, binary_focal_loss
+from segmentation_models.metrics import iou_score
 from data_generator import DataGenerator
 from sklearn.model_selection import train_test_split
 
@@ -138,7 +139,7 @@ def main():
                 
 
                 nested_model = nested_unet(nests=current_num_nests, filters=current_num_filters, operation=current_operation, input_shape=(image_width, image_height, 1))
-                nested_model.compile("adam", "mse")
+                nested_model.compile("adam", "mse", loss=dice_loss, metrics=[iou_score])
                                      # metrics=[MeanIoU(num_classes=NUM_CLASSES, name='iou'), confusion_matrix])
                 
                 model_checkpoint = ModelCheckpoint(
