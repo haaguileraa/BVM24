@@ -107,8 +107,8 @@ def main():
     num_nests = [1, 2, 4]#, 8, 16]
     numFilters = [8, 16] 
     operations = ["add", "multiply", "concatenate"]
-    N = 20#int(55749*0.1) # 10% of the dataset
-    batch_size = 256
+    N = int(55749*0.1) # 10% of the dataset
+    batch_size = 64
     validation_split = 0.2
     NUM_CLASSES = 1
     
