@@ -143,7 +143,7 @@ def main():
                                      # metrics=[MeanIoU(num_classes=NUM_CLASSES, name='iou'), confusion_matrix])
                 
                 model_checkpoint = ModelCheckpoint(
-                    filepath='./models/model_{epoch:02d}_{iou:.4f}_{val_iou:.4f}.h5',
+                    filepath='./models/nestedUnet_{current_num_nests}_{current_num_filters}_{epoch:02d}_{iou:.4f}_{val_iou:.4f}.h5',
                     monitor='val_loss',
                     verbose=1,
                     save_best_only=True,
