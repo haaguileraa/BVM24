@@ -102,11 +102,11 @@ def confusion_matrix(y_true, y_pred):
 def main():
     image_width = 224
     image_height = 224
-    num_nests = [1, 2, 4, 8, 16]
+    num_nests = [1, 2, 4]#, 8, 16]
     numFilters = [8, 16] 
     operations = ["add", "multiply", "concatenate"]
-    N = int(55749*0.1) # 10% of the dataset
-    batch_size = 32
+    N = 20#int(55749*0.1) # 10% of the dataset
+    batch_size = 256
     validation_split = 0.2
     NUM_CLASSES = 1
     
@@ -133,8 +133,8 @@ def main():
                 train_paths, val_paths = train_test_split(image_paths, test_size=validation_split)
                 
 
-                train_data = DataGenerator(train_paths, N, (image_width, image_height), batch_size=batch_size)
-                val_data = DataGenerator(val_paths, N, (image_width, image_height), batch_size=batch_size)
+                train_data = DataGenerator(train_paths, N, (image_width, image_height), shuffle=True, batch_size=batch_size)
+                val_data = DataGenerator(val_paths, N, (image_width, image_height), shuffle=False, batch_size=batch_size)
                 
                 
 
@@ -143,12 +143,13 @@ def main():
                                      # metrics=[MeanIoU(num_classes=NUM_CLASSES, name='iou'), confusion_matrix])
                 
                 model_checkpoint = ModelCheckpoint(
-                    filepath=f"./checkpoints/nestedUnet_{current_num_nests}_{current_num_filters}_{{epoch}}.h5",
+                    filepath='./models/model_{epoch:02d}_{iou:.4f}_{val_iou:.4f}.h5',
+                    monitor='val_loss',
+                    verbose=1,
                     save_best_only=True,
-                    monitor="val_loss",
-                    mode="min",
                     save_weights_only=False,
-                    verbose=1
+                    mode='min',
+                    save_freq='epoch'
                 )
                 
                 time_callback = TimeHistory()
