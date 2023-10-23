@@ -163,6 +163,10 @@ cython_debug/
 training224x224/
 kvasir-seg/
 checkpoints/
+_alt/
+history/
+time_history/
+models/
 logs/
 *.txt
 *.h5
