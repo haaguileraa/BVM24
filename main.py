@@ -93,18 +93,11 @@ def nested_unet(nests=4, filters=1, forward_input=True, operation="multiply", in
     else:
         return Model(x, m0)
 
-def confusion_matrix(y_true, y_pred):
-    y_pred = K.clip(y_pred, 0, 1) # clip predicted labels to [0, 1]
-    y_true_f = K.flatten(K.cast(y_true, 'float32'))
-    y_pred_f = K.flatten(K.cast(K.round(y_pred), 'float32'))
-    intersection = K.sum(y_true_f * y_pred_f)
-    union = K.sum(y_true_f) + K.sum(y_pred_f) - intersection
-    return (intersection + K.epsilon()) / (union + K.epsilon())
 
 def main():
     image_width = 224
     image_height = 224
-    num_nests = [1, 2, 4]#, 8, 16]
+    num_nests = [2, 3, 5]
     numFilters = [8, 16] 
     operations = ["add", "multiply", "concatenate"]
     N = int(55749*0.1) # 10% of the dataset
@@ -132,25 +125,21 @@ def main():
         for current_num_filters in numFilters:
             for current_operation in operations:
                 
-                image_paths = [TRAINING_PATH + str(i) + ".png" for i in range(N)]
+                image_paths = [TRAINING_PATH + str(i) + ".png" for i in range(N)] ## for BAGLS
+                #image_paths = ["./kvasir-seg/images/" + f for f in os.listdir("./kvasir-seg/images")] ## for kvasir-seg
+            
+                train_paths, val_paths = train_test_split(image_paths, test_size=validation_split)
+                
+                train_data = DataGenerator(train_paths, (image_width, image_height), shuffle=True, batch_size=batch_size, augment=transforms)
+                val_data = DataGenerator(val_paths, (image_width, image_height), shuffle=False, batch_size=batch_size)
                 
                 log_dir = f'./logs/{current_num_nests}_{current_num_filters}_{current_operation}'
                 tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
 
-                        
-                train_paths, val_paths = train_test_split(image_paths, test_size=validation_split)
-                
-
-                train_data = DataGenerator(train_paths, N, (image_width, image_height), shuffle=True, batch_size=batch_size)
-                val_data = DataGenerator(val_paths, N, (image_width, image_height), shuffle=False, batch_size=batch_size)
-                
-                
-
                 nested_model = nested_unet(nests=current_num_nests, filters=current_num_filters, operation=current_operation, input_shape=(image_width, image_height, 1))
                 nested_model.compile("adam", "mse", metrics=[iou_score])
                                     #loss = dice_loss,
-                                     # metrics=[MeanIoU(num_classes=NUM_CLASSES, name='iou'), confusion_matrix])
-                
+                                                    
                 model_checkpoint = ModelCheckpoint(
                     filepath=f"./checkpoints/nestedUnet_{current_num_nests}_{current_num_filters}_{{epoch}}.h5",
                     monitor='val_loss',

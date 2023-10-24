@@ -7,18 +7,17 @@ import albumentations as A
 
 
 class DataGenerator(tf.keras.utils.Sequence):
-    def __init__(self, image_paths, num_ims, size=None, shuffle=False, batch_size = 32, augment = None):
+    def __init__(self, image_paths, size=None, shuffle=False, batch_size = 32, augment = None):
         self.image_paths = image_paths
         self.batch_size = batch_size
-        self.num_ims = num_ims
         self.size = size
         self.shuffle = shuffle
         self.validation_indices = None
         self.training_indices = None
         self.augment = augment
         
-        self.mask_paths =  [os.path.splitext(path)[0] + "_seg.png" for path in self.image_paths]
-        
+        self.mask_paths =  [os.path.splitext(path)[0] + "_seg.png" for path in self.image_paths] ## for BAGLS
+        #self.mask_paths = [path.replace("images", "masks") for path in self.image_paths] ## for kvasir-seg
         self._on_epoch_end()
 
     def __len__(self):
