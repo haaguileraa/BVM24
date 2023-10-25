@@ -161,6 +161,7 @@ cython_debug/
 #.idea/
 
 training224x224/
+Task04_Hippocampus/
 kvasir-seg/
 checkpoints/
 _alt/
