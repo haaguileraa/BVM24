@@ -4,6 +4,7 @@ os.environ["SM_FRAMEWORK"] = "tf.keras"
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, Callback, TensorBoard
 from tensorflow.keras.layers import Conv2D, Input, Concatenate, Activation, MaxPool2D, UpSampling2D, GroupNormalization, Add, Multiply
 from tensorflow.keras.models import Model
+from keras.optimizers import Adam
 from tensorflow.keras import backend as K
 from segmentation_models.losses import dice_loss
 from segmentation_models.metrics import iou_score
@@ -137,8 +138,10 @@ def main():
                 tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
 
                 nested_model = nested_unet(nests=current_num_nests, filters=current_num_filters, operation=current_operation, input_shape=(image_width, image_height, 1))
-                nested_model.compile("adam", "mse", metrics=[iou_score])
-                                    #loss = dice_loss,
+                nested_model.compile(optimizer = Adam(learning_rate=1e-3),
+                                     #loss= "mse", 
+                                     loss = dice_loss,
+                                     metrics=[iou_score])
                                                     
                 model_checkpoint = ModelCheckpoint(
                     filepath=f"./checkpoints/nestedUnet_{current_num_nests}_{current_num_filters}_{{epoch}}.h5",
