@@ -28,13 +28,13 @@ class DataGenerator(tf.keras.utils.Sequence):
         masks = np.zeros((self.batch_size, *self.size, 1))
         for i, bn in enumerate(indices):
             img_path = self.image_paths[bn]
-            mask_path = img_path.replace('.png', '_seg.png')
-            mask = io.imread(mask_path).astype('float32') 
-            #if np.max(mask) != 0:
+            #mask_path = img_path.replace('.png', '_seg.png')
+            mask_path = self.mask_paths[bn]
             img = Image.open(img_path).convert("L")  # Open image in grayscale
+            mask = Image.open(mask_path).convert("L")  # Open mask in grayscale
             if self.size is not None:        
                 img = np.array(img.resize(self.size))#.astype('float32') / 255.0
-                mask = np.array(Image.fromarray(mask).resize(self.size))#.astype('float32') / 255.0
+                mask = np.array(mask.resize(self.size))#.astype('float32') / 255.0
             if self.augment is not None:
                 augmented = self.augment(image=img, mask=mask)
                 img = augmented["image"]
