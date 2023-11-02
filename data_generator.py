@@ -16,8 +16,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.training_indices = None
         self.augment = augment
         
-        self.mask_paths =  [os.path.splitext(path)[0] + "_seg.png" for path in self.image_paths] ## for BAGLS
-        #self.mask_paths = [path.replace("images", "masks") for path in self.image_paths] ## for kvasir-seg
+        #self.mask_paths =  [os.path.splitext(path)[0] + "_seg.png" for path in self.image_paths] ## for BAGLS
+        self.mask_paths = [path.replace("images", "masks") for path in self.image_paths] ## for kvasir-seg
         self._on_epoch_end()
 
     def __len__(self):

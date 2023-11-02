@@ -98,7 +98,7 @@ def nested_unet(nests=4, filters=1, forward_input=True, operation="multiply", in
 def main():
     image_width = 224
     image_height = 224
-    num_nests = [2, 3, 5]
+    num_nests = [1, 2, 3, 4]
     numFilters = [8, 16] 
     operations = ["add", "multiply", "concatenate"]
     N = int(55749*0.1) # 10% of the dataset
@@ -126,15 +126,15 @@ def main():
         for current_num_filters in numFilters:
             for current_operation in operations:
                 
-                image_paths = [TRAINING_PATH + str(i) + ".png" for i in range(N)] ## for BAGLS
-                #image_paths = ["./kvasir-seg/images/" + f for f in os.listdir("./kvasir-seg/images")] ## for kvasir-seg
+                #image_paths = [TRAINING_PATH + str(i) + ".png" for i in range(N)] ## for BAGLS
+                image_paths = ["./kvasir-seg/images/" + f for f in os.listdir("./kvasir-seg/images")] ## for kvasir-seg
             
                 train_paths, val_paths = train_test_split(image_paths, test_size=validation_split)
                 
                 train_data = DataGenerator(train_paths, (image_width, image_height), shuffle=True, batch_size=batch_size, augment=transforms)
                 val_data = DataGenerator(val_paths, (image_width, image_height), shuffle=False, batch_size=batch_size)
                 
-                log_dir = f'./logs/{current_num_nests}_{current_num_filters}_{current_operation}'
+                log_dir = f'./logs/{current_num_nests}_{current_num_filters}_{current_operation}_kvasir'
                 tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
 
                 nested_model = nested_unet(nests=current_num_nests, filters=current_num_filters, operation=current_operation, input_shape=(image_width, image_height, 1))
@@ -144,7 +144,7 @@ def main():
                                      metrics=[iou_score])
                                                     
                 model_checkpoint = ModelCheckpoint(
-                    filepath=f"./checkpoints/nestedUnet_{current_num_nests}_{current_num_filters}_{{epoch}}.h5",
+                    filepath=f"./checkpoints/nestedUnet_{current_num_nests}_{current_num_filters}_{{epoch}}_kvasir.h5",
                     monitor='val_loss',
                     verbose=1,
                     save_best_only=True,
@@ -159,13 +159,13 @@ def main():
                 history = nested_model.fit(train_data, epochs=10, validation_data=val_data, callbacks=[model_checkpoint, stop_criterion, time_callback, tensorboard_callback])
                 history_dict = history.history
 
-                with open(f"./history/history_{current_num_nests}_{current_num_filters}_{current_operation}.json", 'w') as f:
+                with open(f"./history/history_{current_num_nests}_{current_num_filters}_{current_operation}_kvasir.json", 'w') as f:
                     json.dump(history_dict, f)
                 # # Save the final model using the native Keras format
-                nested_model.save(f"./models/nestedUnet_{current_num_nests}_{current_num_filters}_{current_operation}_{1}_final.keras")
+                nested_model.save(f"./models/nestedUnet_{current_num_nests}_{current_num_filters}_{current_operation}_{1}_final_kvasir.keras")
                 
                 # Save epoch-wise time taken during training
-                with open(f"./time_history/time_history_{current_num_nests}_{current_num_filters}_{current_operation}.txt", "w") as f:
+                with open(f"./time_history/time_history_{current_num_nests}_{current_num_filters}_{current_operation}_kvasir.txt", "w") as f:
                     f.write("\n".join(str(t) for t in time_callback.times))
                 
 if __name__ == '__main__':
