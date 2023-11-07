@@ -21,27 +21,26 @@ current_num_filters = 64
 current_operation = 'add'
 filtered_paths = filter_paths(paths, current_num_nests, current_num_filters, current_operation)
 
-# Create a figure with two subplots: one for the loss and one for the IoU
 fig, axes = plt.subplots(2, figsize=(12, 12))
 
-for path in bagls_paths:
+for path in bagls_paths: # only plotting BAGLS results! use either filtered_paths or paths to plot both. 
     with open(os.path.join(history_path, path), 'r') as f:
         history = json.load(f)
 
-    # Plot the loss in the first subplot
+    # dice loss 
     axes[0].plot(history['loss'], label='Training Loss for ' + path, color='blue')
     axes[0].plot(history['val_loss'], label='Validation Loss for ' + path, color='red')
 
-    # Plot the IoU in the second subplot
+    # IoU in the second subplot
     axes[1].plot(history['iou_score'], label='Training IoU for ' + path, color='blue')
     axes[1].plot(history['val_iou_score'], label='Validation IoU for ' + path, color='red')
 
-# Set the title, x-axis label, and y-axis label of the loss subplot
+# title, x-axis label, and y-axis label of the dice losssubplot
 axes[0].set_title('Loss for All History Files', fontsize=16)
 axes[0].set_xlabel('Epochs', fontsize=14)
 axes[0].set_ylabel('Loss', fontsize=14)
 
-# Set the title, x-axis label, and y-axis label of the IoU subplot
+# title, x-axis label, and y-axis label of the IoU subplot
 axes[1].set_title('IoU for All History Files', fontsize=16)
 axes[1].set_xlabel('Epochs', fontsize=14)
 axes[1].set_ylabel('IoU', fontsize=14)
@@ -54,6 +53,5 @@ axes[1].legend(fontsize=12)
 axes[0].grid(True)
 axes[1].grid(True)
 
-# Display the plot
 plt.tight_layout()
 plt.show()
