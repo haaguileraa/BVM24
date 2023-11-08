@@ -21,7 +21,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self._on_epoch_end()
 
     def __len__(self):
-        return len(self.image_paths)
+        return len(self.image_paths) // self.batch_size
 
     def _generate_data(self, indices):
         images = np.zeros((self.batch_size, *self.size, 1))
