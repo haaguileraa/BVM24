@@ -12,12 +12,12 @@ kvasir_paths = [path for path in paths if "_kvasir" in path]
 bagls_paths = [path for path in paths if "_kvasir" not in path]
 
 def filter_paths(paths, current_num_nests, current_num_filters, current_operation):
-    filtered_paths = [path for path in paths if f"history_{current_num_nests}{current_num_filters}{current_operation}" in path]
+    filtered_paths = [path for path in paths if f"history_{current_num_nests}_{current_num_filters}_{current_operation}" in path]
     return filtered_paths
 
 # Use the function to filter the paths
 current_num_nests = 2
-current_num_filters = 64
+current_num_filters = 16
 current_operation = 'add'
 filtered_paths = filter_paths(paths, current_num_nests, current_num_filters, current_operation)
 

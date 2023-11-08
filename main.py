@@ -15,8 +15,6 @@ import json
 TRAINING_PATH = "./training224x224/"
 image_width = 224
 image_height = 224
-NUM_NESTS = 4
-NUM_FILTERS = 8
 
 
 class TimeHistory(Callback):
@@ -40,7 +38,7 @@ def conv(x, filters:int=8, activation:str="swish"):
     return x
 
 
-def unet(filters=8, layers=4, input_shape=(224,224,1), activation='swish'):
+def unet(filters=8, layers=4, num_classes = 1, input_shape=(224,224,1), activation='swish'):
     to_concat = []
     
     model_in = Input(input_shape)
@@ -63,10 +61,17 @@ def unet(filters=8, layers=4, input_shape=(224,224,1), activation='swish'):
         x = Concatenate()([x, to_concat.pop()])
         x = conv(x, filters*2**(layers-i-1), activation)
     
-    x = Conv2D(1, (1,1), padding='same')(x)
-    model_out = Activation("sigmoid")(x)
-    
-    return Model(model_in, model_out)
+    if num_classes == 1:
+        x = Conv2D(1, (1,1), padding='same')(x)
+        model_out = Activation("sigmoid")(x)
+        
+        return Model(model_in, model_out)
+    if num_classes == 2:
+        x1 = Conv2D(1, (1,1), padding='same')(x)
+        x2 = Conv2D(1, (1,1), padding='same')(x)
+        x1 = Activation("sigmoid")(x1)
+        x2 = Activation("sigmoid")(x2)
+        return Model(model_in, (x1, x2))
 
 
 def nested_unet(nests=4, filters=1, forward_input=True, operation="multiply", input_shape=(256, 256, 1)):
