@@ -204,8 +204,9 @@ if __name__ == "__main__":
 
     # Plotting the history for a fixed number of filters    
     for target_n_filters in available_n_filters:
+        path_to_save_img = HISTORY_PATH+f"{target_n_filters}_filters.svg"
         target_files = paths_fixed_filters(raw_paths, num_filters= target_n_filters)
-        plot_history_line_op(target_files, title = f"Number of filters = {target_n_filters} ({dataset_name})", legends_on=True, vertical = False)
+        plot_history_line_op(target_files, title = f"Number of filters = {target_n_filters} ({dataset_name})", legends_on=True, vertical = False, save_path=path_to_save_img)
 
     ## You can also make the plots separating the operation: 
     operations = ["add", "multiply", "concatenate"]

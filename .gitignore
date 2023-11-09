@@ -169,6 +169,8 @@ history/
 time_history/
 models/
 logs/
+10Epochs/
+30Epochs/
 *.txt
 *.h5
 *.hdf5
