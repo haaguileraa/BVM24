@@ -171,6 +171,7 @@ models/
 logs/
 10Epochs/
 30Epochs/
+images/
 *.txt
 *.h5
 *.hdf5
